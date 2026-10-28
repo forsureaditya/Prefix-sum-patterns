@@ -130,3 +130,127 @@ int numSubmatrixSumTarget(vector<vector<int>>& matrix, int target) {
     return count;
 }
 
+LC : 525
+// PATTERN: Balance / Equal-Count Prefix Sum
+//          (Prefix Sum + HashMap storing FIRST index, with value transformation)
+// Problem: 525 - Contiguous Array
+//
+// IDEA:
+// "0 aur 1 ki barabar count" ko "sum = 0" mein badalna hai.
+// Trick: 0 ko -1 maan lo, 1 ko +1 rehne do.
+// Ab agar kisi subarray mein barabar 0 aur 1 hain, to +1 aur -1 cancel ho jayenge
+// aur us subarray ka sum = 0 hoga.
+//
+// Sum 0 wala subarray kaise dhundhein?
+// Agar index i pe prefix sum = X tha, aur baad mein index j pe bhi prefix sum = X hai,
+// to beech ke hisse (i+1 ... j) ka sum = X - X = 0.
+// Yaani "same prefix sum dobara dikha" = "beech ka subarray balanced hai".
+
+int findMaxLength(vector<int>& nums) {
+
+    int cumsum = 0;   // running balance (+1 for '1', -1 for '0')
+
+    // key = balance, value = wo balance PEHLI BAAR kis index pe aaya
+    unordered_map<int,int> mpp;
+
+    // Empty prefix (index -1) pe balance 0 tha.
+    // Kyu? Agar shuru se hi balance 0 ho jaye (jaise [0,1]),
+    // to length = i - (-1) = i + 1 aani chahiye. Ye entry na ho to wo miss ho jayega.
+    mpp[0] = -1;
+
+    int maxlen = 0;   // ab tak ki sabse lambi balanced subarray
+
+    for (int i = 0; i < nums.size(); i++) {
+
+        // Transformation: 0 -> -1, 1 -> +1
+        if (nums[i] == 0) cumsum -= 1;
+        else cumsum += 1;
+
+        // Ye balance pehle aa chuka hai?
+        if (mpp.find(cumsum) != mpp.end()) {
+            // Haan: pehle index se ab tak ka hissa balanced hai.
+            // Length = current index - pehli baar dikhne wala index.
+            // Map update NAHI karte, kyunki hume LONGEST chahiye.
+            // Pehla (sabse purana) index rakhne se length sabse badi milti hai.
+            // Agar index badal dete, to length chhoti ho jati.
+            maxlen = max(maxlen, i - mpp[cumsum]);
+        }
+        else {
+            // Nahi: ye balance pehli baar dikha, to iska index save kar lo.
+            mpp[cumsum] = i;
+        }
+    }
+
+    return maxlen;
+}
+
+// Time: O(n)  (ek pass)
+// Space: O(n) (worst case har balance alag ho)
+//
+// 560 se farq:
+// 560 mein COUNT chahiye tha, to har baar mpp[sum]++ (frequency).
+// 525 mein LONGEST chahiye, to sirf pehla index store hota hai aur kabhi overwrite nahi hota.
+
+
+Transformation kab sochni hai (pehchaan ke signals)
+1. "Equal number of A and B" → A ko +1, B ko -1, target 0.
+2. "More A than B" / majority / strictly greater → +1/-1 aur sum > 0.
+3. "Count of elements with property P" (odd, divisible, greater than x) → P wale ko 1, baaki ko 0, phir ye "sum = k" wala 560 ban jata hai.
+4. "Even / odd frequency", "palindrome ban sakta hai", "at most one odd" → har character ke liye bit, aur prefix XOR mask.
+5. "Divisible by k" → prefix sum ka remainder store karo.
+6. Kisi fixed value (median, pivot) se compare → bada +1, chhota -1.
+
+
+
+
+LC 930 (sliding window and prefix sum two approach) 
+
+Method 1: Prefix Sum + HashMap (exactly goal)
+
+Steps:
+
+sum = running prefix sum, mpp = prefix sum kitni baar aaya (frequency).
+mpp[0]++ se shuru karo (empty prefix), taaki shuru se hi goal ke barabar wali subarray miss na ho.
+Har element pe sum += nums[i].
+diff = sum - goal nikalo. Agar pehle koi prefix diff ke barabar tha, to uske baad se ab tak ki subarray ka sum exactly goal hai.
+cnt += mpp[diff], kyunki diff kai baar aa chuka ho sakta hai aur har baar ek alag subarray banti hai.
+Uske baad mpp[sum]++ (pehle check, phir insert).
+
+Ye bilkul 560 ka code hai.
+
+Method 2: Sliding Window, atMost(goal) - atMost(goal-1)
+
+Idea: “Exactly goal” ko seedha sliding window se nahi pakad sakte. Lekin “at most goal” pakad sakte hain. To:
+
+exactly(goal) = atMost(goal) - atMost(goal-1)
+
+Matlab jin subarrays ka sum ≤ goal hai, unmein se wo hata do jinka sum ≤ goal-1 hai. Bachte hain sirf sum = goal wale.
+
+func(nums, goal) ke steps (count of subarrays with sum ≤ goal):
+
+goal < 0 ho to 0 return karo. Ye goal = 0 pe zaroori hai, kyunki tab func(goal-1) ko -1 milega.
+Do pointers l, r = 0, sum = 0.
+r ko aage badhao, sum += nums[r].
+Agar sum > goal, to l ko aage badhao aur sum -= nums[l] karo, jab tak sum <= goal na ho jaye.
+Ab [l..r] valid window hai. r pe end hone wali valid subarrays l, l+1, ..., r se shuru ho sakti hain, yaani r - l + 1. Ye cnt mein add karo.
+r++ karke repeat.
+
+Main function: func(goal) - func(goal-1).
+
+Example: nums = [1,0,1,0,1], goal = 2. atMost(2) = 14, atMost(1) = 10, answer = 4. ✓
+
+Dono mein farq
+	HashMap	Sliding Window
+Time	O(n)	O(n), lekin 2 pass
+Space	O(n)	O(1)
+Negative numbers	Chalta hai	Nahi chalta
+Kab chalega	Hamesha	Sirf jab elements ≥ 0 hon (monotonic sum)
+
+930 mein array binary hai (0/1), isliye dono chalte hain. 560 mein negatives ho sakte hain, isliye wahan sirf HashMap chalta hai.
+
+Ek improvement: tumhare func(vector<int> nums, ...) mein vector copy hota hai. const vector<int>& nums likho, warna har call pe O(n) extra copy lagegi.
+
+Yaad rakhne ka trick:
+
+HashMap: “sum - goal pehle dikha?”
+Window: “atMost(goal) - atMost(goal-1), aur har r pe r - l + 1 add karo.”
