@@ -1,0 +1,132 @@
+LC - 525,560,930,1074(have same pattern)
+
+LC - 560
+// PATTERN: Prefix Sum + HashMap (Frequency Count)
+// Problem: 560 - Subarray Sum Equals K
+//
+// IDEA:
+// Agar index j tak ka prefix sum = S_j aur index i tak ka prefix sum = S_i (i < j),
+// to subarray (i+1 ... j) ka sum = S_j - S_i.
+// Hume ye sum k chahiye, yaani S_j - S_i = k  =>  S_i = S_j - k
+// To har j pe bas ye dekhna hai: "pehle kitni baar prefix sum (S_j - k) aa chuka hai?"
+// Har aisi baar ek valid subarray banta hai.
+
+int subarraySum(vector<int>& nums, int k) {
+
+    // key = prefix sum, value = ab tak ye prefix sum kitni baar aaya (FREQUENCY)
+    // Frequency isliye store karte hain kyunki hume COUNT chahiye, longest nahi.
+    // (525 mein longest chahiye tha, wahan sirf pehla index store hota hai.)
+    unordered_map<int,int> mpp;
+
+    int sum = 0;   // running prefix sum
+
+    // Prefix sum 0 ek baar "already seen" maano (empty prefix).
+    // Kyu? Agar shuru se hi koi subarray ka sum k ho (sum == k),
+    // to diff = sum - k = 0 milna chahiye, warna wo subarray miss ho jayegi.
+    mpp[0]++;
+
+    int cnt = 0;   // valid subarrays ka total count
+
+    for (int i = 0; i < nums.size(); i++) {
+
+        // Current element add karke prefix sum update karo
+        sum += nums[i];
+
+        // Hume aisa purana prefix chahiye jiska value (sum - k) ho,
+        // taaki beech wale hisse ka sum exactly k aaye
+        int diff = sum - k;
+
+        // Agar diff pehle kabhi aaya hai, to utni hi subarrays
+        // current index pe end ho rahi hain jinka sum k hai.
+        // cnt mein += frequency (sirf +1 nahi), kyunki diff kai baar aa chuka ho sakta hai
+        // (negative numbers ya zeros ki wajah se same prefix sum repeat ho sakta hai).
+        if (mpp.find(diff) != mpp.end()) {
+            cnt += mpp[diff];
+        }
+
+        // Current prefix sum ko map mein daalo, AFTER check karne ke.
+        // Order important hai: pehle check, phir insert.
+        // Warna k = 0 hone pe element khud ke saath match ho jayega (galat count).
+        mpp[sum]++;
+    }
+
+    return cnt;
+}
+
+// Time: O(n)  (ek pass, HashMap ke operations average O(1))
+// Space: O(n) (worst case har prefix sum alag ho)
+//
+// Sliding window yahan kyu nahi chalti? Kyunki nums mein negative numbers ho sakte hain,
+// to window badhane/ghatane se sum monotonic nahi rehta. Prefix + HashMap negatives ke saath bhi chalta hai.
+
+
+LC: 1074 (exact question but matrix implementation)
+
+int numSubmatrixSumTarget(vector<vector<int>>& matrix, int target) {
+    int rows = matrix.size();
+    int cols = matrix[0].size();
+    int count = 0;
+
+    // STEP 1: Har row ka prefix sum banao (left se right).
+    // Kyu? Taaki kisi bhi row mein "left se right tak ka sum" O(1) mein mil jaye.
+    // Ab matrix[r][c] = us row mein column 0 se column c tak ka sum.
+    for (int r = 0; r < rows; r++) {
+        for (int c = 1; c < cols; c++) {
+            matrix[r][c] += matrix[r][c - 1];
+        }
+    }
+
+    // STEP 2: Left edge fix karo.
+    // Kyu? Rectangle ki width define karne ke liye left aur right dono chahiye.
+    for (int left = 0; left < cols; left++) {
+
+        // STEP 3: Right edge fix karo (left se aage tak).
+        // Kyu? Har possible width try karni hai: left..left, left..left+1, ... left..cols-1.
+        // Ab (left, right) pair se width fix ho gayi.
+        for (int right = left; right < cols; right++) {
+
+            // Har (left, right) pair ke liye fresh start chahiye,
+            // kyunki ye alag strip hai, isliye map aur sum yahin declare hote hain.
+            int runningSum = 0;                  // top se current row tak strip ka total
+            unordered_map<int, int> prefixCount; // prefix sum -> kitni baar aaya
+            
+            // Kyu 0 -> 1? "Kuch bhi row skip nahi ki" (top = row 0 se start)
+            // wali rectangles ko count karne ke liye.
+            prefixCount[0] = 1;
+
+            // STEP 4: Upar se neeche traverse karo.
+            // Current row = bottom edge. Ye height badalta hai.
+            for (int bottom = 0; bottom < rows; bottom++) {
+
+                // Is row mein left..right ka sum nikalo.
+                // matrix[bottom][right] = column 0 se right tak
+                runningSum += matrix[bottom][right];
+
+                // Column 0 se left-1 tak ka hissa hatao,
+                // taaki sirf left..right ka sum bache.
+                if (left > 0) {
+                    runningSum -= matrix[bottom][left - 1];
+                }
+
+                // STEP 5: 1D "Subarray Sum Equals K" trick.
+                // Hume chahiye: koi purani top edge jahan se bottom tak sum == target ho.
+                // Matlab: runningSum - oldPrefix == target
+                //   => oldPrefix = runningSum - target
+                int needed = runningSum - target;
+
+                // Agar ye prefix pehle aaya tha, toh utni hi valid rectangles
+                // is bottom pe khatam ho rahi hain (har purana prefix = ek alag top edge).
+                if (prefixCount.find(needed) != prefixCount.end()) {
+                    count += prefixCount[needed];
+                }
+
+                // Current prefix ko map mein daalo, aage ki rows ke liye
+                // ye ek possible top edge ban jayega.
+                prefixCount[runningSum]++;
+            }
+        }
+    }
+
+    return count;
+}
+
